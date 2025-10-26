@@ -13,9 +13,28 @@ RUN curl -s -o /var/bind/oisd.rpz https://big.oisd.nl/rpz || { echo "Failed to d
     curl -s -o /var/bind/hagezi.tif.rpz https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/rpz/tif.txt || { echo "Failed to download hagezi.tif.rpz"; exit 1; }
 
 # Setup cron jobs
-RUN echo "0 * * * * curl --retry 7 -sL -o /var/bind/oisd.rpz.tmp https://big.oisd.nl/rpz && named-checkzone oisd.rpz /var/bind/oisd.rpz.tmp && rndc freeze oisd.rpz && mv /var/bind/oisd.rpz.tmp /var/bind/oisd.rpz && rndc thaw oisd.rpz" >> /etc/crontabs/root && \
-    echo "0 0 * * * curl --retry 7 -sL -o /var/bind/hagezi.pro.rpz.tmp https://big.oisd.nl/rpz && named-checkzone hagezi.pro.rpz /var/bind/hagezi.pro.rpz.tmp && rndc freeze hagezi.pro.rpz && mv /var/bind/hagezi.pro.rpz.tmp /var/bind/hagezi.pro.rpz && rndc thaw hagezi.pro.rpz" >> /etc/crontabs/root && \
-    echo "0 0 * * * curl --retry 7 -sL -o /var/bind/hagezi.tif.rpz.tmp https://big.oisd.nl/rpz && named-checkzone hagezi.tif.rpz /var/bind/hagezi.tif.rpz.tmp && rndc freeze hagezi.tif.rpz && mv /var/bind/hagezi.tif.rpz.tmp /var/bind/hagezi.tif.rpz && rndc thaw hagezi.tif.rpz" >> /etc/crontabs/root
+RUN echo "@reboot /bin/sh -c '\
+  while true; do \
+    echo \"Updating oisd.rpz...\"; \
+    curl -sL -o /var/bind/oisd.rpz.tmp https://big.oisd.nl/rpz && \
+    named-checkzone oisd.rpz /var/bind/oisd.rpz.tmp && \
+    rndc freeze oisd.rpz && mv /var/bind/oisd.rpz.tmp /var/bind/oisd.rpz && rndc thaw oisd.rpz; \
+    sleep 3600; \
+  done &' \
+" >> /etc/crontabs/root && \
+echo "@reboot /bin/sh -c '\
+  while true; do \
+    echo \"Updating hagezi.pro.rpz...\"; \
+    curl -sL -o /var/bind/hagezi.pro.rpz.tmp https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/rpz/pro.txt && \
+    named-checkzone hagezi.pro.rpz /var/bind/hagezi.pro.rpz.tmp && \
+    rndc freeze hagezi.pro.rpz && mv /var/bind/hagezi.pro.rpz.tmp /var/bind/hagezi.pro.rpz && rndc thaw hagezi.pro.rpz; \
+    echo \"Updating hagezi.tif.rpz...\"; \
+    curl -sL -o /var/bind/hagezi.tif.rpz.tmp https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/rpz/tif.txt && \
+    named-checkzone hagezi.tif.rpz /var/bind/hagezi.tif.rpz.tmp && \
+    rndc freeze hagezi.tif.rpz && mv /var/bind/hagezi.tif.rpz.tmp /var/bind/hagezi.tif.rpz && rndc thaw hagezi.tif.rpz; \
+    sleep 86400; \
+  done &' \
+" >> /etc/crontabs/root
 
 EXPOSE 53/udp 53/tcp
 
